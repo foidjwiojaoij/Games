@@ -1,6 +1,12 @@
-import sys, pygame
+import sys, pygame, os
 
 WIDTH, HEIGHT = 800, 600
+
+global current_level
+current_level = 'tutorial'
+tile_size = 50
+level_width = WIDTH
+level_height = HEIGHT
 
 class Game():
     def __init__(self):
@@ -27,15 +33,33 @@ class Game():
 
 
             all_sprites.update()
+            camera.update(player)
 
             if self.white_world:
                 self.screen.fill((255, 255, 255))
             else:
                 self.screen.fill((0, 0, 0))
 
-            all_sprites.draw(self.screen)
+            for sprite in all_sprites:
+                self.screen.blit(sprite.image, camera.apply(sprite))
+
             pygame.display.flip()
             self.clock.tick(60)
+
+class Camera():
+    def __init__(self, width, height):
+        self.camera = pygame.Rect(0, 0, width, height)
+        self.width = width
+        self.height = height
+
+    def apply(self, entity):
+        return entity.rect.move(self.camera.topleft)
+
+    def update(self, target):
+        x = -target.rect.centerx + int(WIDTH / 2)
+        y = -target.rect.centery + int(HEIGHT / 2)
+
+        self.camera.topleft = (x, y)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -89,20 +113,74 @@ class Player(pygame.sprite.Sprite):
             self.vy = 0
             self.on_ground = True
 
-class wPlatforms(pygame.sprite.Sprite):
+class Platforms(pygame.sprite.Sprite):
     def __init__(self, x, y, colour, width, height):
         super().__init__()
         self.image = pygame.Surface((width, height))
-        self.fill = (0, 0, 0)
         self.rect = self.image.get_rect()
         self.rect.topleft = (x, y)
-        self.colour = colour
-        self.rect.topleft(x, y)
 
+        if colour == 'white':
+            self.image.fill((255, 255, 255))
+            border = (0, 0, 0)
+        elif colour == 'black':
+            self.image.fill((0, 0, 0))
+            border = (255, 255, 255)
+        elif colour == 'all':
+            self.image.fill((0, 128, 128))
+            border = (0, 128, 128)
+
+
+        pygame.draw.rect(self.image, border, self.image.get_rect(), 2)
+
+def read_map():
+    try:
+        max_rows = 0
+        max_cols = 0
+        script_dir = os.path.dirname(__file__)
+        map_path = os.path.join(script_dir, 'Maps', f'{current_level}.txt')
+        with open(map_path, 'r') as file:
+
+            for row, line in enumerate(file):
+                line = line.strip('\n')
+                max_rows = row + 1
+                for col, char in enumerate(line):
+                    x = col * tile_size
+                    y = row * tile_size
+
+                    max_cols = max(max_cols, col + 1)
+
+                    if char == 'w':
+                        block = Platforms(x, y, 'white', tile_size, tile_size)
+                        all_sprites.add(block)
+                        white_platforms.add(block)
+                    elif char == 'b':
+                        block = Platforms(x, y, 'black', tile_size, tile_size)
+                        all_sprites.add(block)
+                        black_platforms.add(block)
+                    elif char == 'a':
+                        block = Platforms(x, y, 'all', tile_size, tile_size)
+                        all_sprites.add(block)
+                        white_platforms.add(block)
+                        black_platforms.add(block)
+
+        global level_width, level_height
+        level_width = max_cols * tile_size
+        level_height = max_rows * tile_size
+
+    except FileNotFoundError:
+        print(f'Maps/{current_level}.txt file not found')
 
 all_sprites = pygame.sprite.Group()
-platforms = pygame.sprite.Group()
+white_platforms = pygame.sprite.Group()
+black_platforms = pygame.sprite.Group()
 player = Player(400, 400)
+
 all_sprites.add(player)
+
+read_map()
+
+camera = Camera(level_width, level_height)
+
 
 Game().run()
