@@ -89,9 +89,13 @@ class Player(pygame.sprite.Sprite):
             self.vy = 0
             self.on_ground = True
 
-class Platforms(pygame.sprite.Sprite):
-    def __init__(self, x, y, colour):
-        self.surface = (x, y)
+class wPlatforms(pygame.sprite.Sprite):
+    def __init__(self, x, y, colour, width, height):
+        super().__init__()
+        self.image = pygame.Surface((width, height))
+        self.fill = (0, 0, 0)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
         self.colour = colour
         self.rect.topleft(x, y)
 
