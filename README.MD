@@ -1,4 +1,4 @@
-Welcome to Switch
+Welcome to Switch!
 
 Switch is a basic platformer, where you complete levels by switching between 2 worlds! By pressing space, you enter the black world (from white world) and vice versa, allowing you to jump on platforms that only become solid in the correct world!
 
