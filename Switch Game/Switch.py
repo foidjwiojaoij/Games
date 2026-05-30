@@ -4,9 +4,10 @@ WIDTH, HEIGHT = 800, 600
 
 global current_level
 current_level = 'tutorial'
-tile_size = 50
+tile_size = 20
 level_width = WIDTH
 level_height = HEIGHT
+
 
 class Game():
     def __init__(self):
@@ -15,8 +16,6 @@ class Game():
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
         self.white_world = True
-
-
 
     def run(self):
         while True:
@@ -27,10 +26,9 @@ class Game():
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         if self.white_world:
-                             self.white_world = False
+                            self.white_world = False
                         else:
-                             self.white_world = True
-
+                            self.white_world = True
 
             all_sprites.update()
             camera.update(player)
@@ -53,22 +51,28 @@ class Camera():
         self.height = height
 
     def apply(self, entity):
-        return entity.rect.move(self.camera.topleft)
+        return entity.rect.move(-self.camera.x, -self.camera.y)
 
     def update(self, target):
-        x = -target.rect.centerx + int(WIDTH / 2)
-        y = -target.rect.centery + int(HEIGHT / 2)
-
+        x = target.rect.centerx - int(WIDTH / 2)
+        y = target.rect.centery - int(HEIGHT / 2)
         self.camera.topleft = (x, y)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
 
-        self.image = pygame.Surface((25, 25))
-        self.image.fill((144, 238, 144))
+        self.image = pygame.Surface((25, 25), pygame.SRCALPHA)
+        pygame.draw.rect(self.image, (144, 238, 144), self.image.get_rect())
         self.rect = self.image.get_rect()
-        self.rect.center = (x, y)
+
+        self.spawn_x = x
+        self.spawn_y = y
+        self.rect.center = (self.spawn_x, self.spawn_y)
+
+        self.fading = False
+        self.fading_speed = 2
+        self.alpha = 255
 
         self.vx = 0
         self.vy = 0
@@ -95,10 +99,24 @@ class Player(pygame.sprite.Sprite):
             elif self.vx < 0:
                 self.vx += self.deceleration
 
-        if self.vx > self.max_speed: self.vx = self.max_speed
-        elif self.vx < -self.max_speed: self.vx = -self.max_speed
+        if self.vx > self.max_speed:
+            self.vx = self.max_speed
+        elif self.vx < -self.max_speed:
+            self.vx = -self.max_speed
+
+        solid_blocks = black_platforms if game.white_world else white_platforms
 
         self.rect.x += self.vx
+
+        hits = pygame.sprite.spritecollide(self, solid_blocks, False)
+
+        for hit in hits:
+            if self.vx > 0:
+                self.rect.right = hit.rect.left
+                self.vx = 0
+            elif self.vx < 0:
+                self.rect.left = hit.rect.right
+                self.vx = 0
 
         if (keys[pygame.K_UP] or keys[pygame.K_w]) and self.on_ground:
             self.vy -= self.jump
@@ -108,10 +126,29 @@ class Player(pygame.sprite.Sprite):
         self.rect.y += self.vy
         self.on_ground = False
 
-        if self.rect.bottom >= HEIGHT - 10:
-            self.rect.bottom = HEIGHT - 10
+        hits = pygame.sprite.spritecollide(self, solid_blocks, False)
+        for hit in hits:
+            if self.vy > 0:
+                self.rect.bottom = hit.rect.top
+                self.vy = 0
+                self.on_ground = True
+            if self.vy < 0:
+                self.rect.top = hit.rect.bottom
+                self.vy = 0
+
+        if self.rect.bottom >= level_height:
+            self.rect.center = (self.spawn_x, self.spawn_y)
+            self.vx = 0
             self.vy = 0
-            self.on_ground = True
+            self.alpha = 0
+            self.fading = True
+
+        if self.fading:
+            self.alpha += self.fading_speed
+            if self.alpha >= 255:
+                self.alpha = 255
+                self.fading = False
+            self.image.set_alpha(self.alpha)
 
 class Platforms(pygame.sprite.Sprite):
     def __init__(self, x, y, colour, width, height):
@@ -127,11 +164,10 @@ class Platforms(pygame.sprite.Sprite):
             self.image.fill((0, 0, 0))
             border = (255, 255, 255)
         elif colour == 'all':
-            self.image.fill((0, 128, 128))
-            border = (0, 128, 128)
+            self.image.fill((99, 102, 241))
+            border = (99, 102, 241)
 
-
-        pygame.draw.rect(self.image, border, self.image.get_rect(), 2)
+        pygame.draw.rect(self.image, border, self.image.get_rect(), 1)
 
 def read_map():
     try:
@@ -167,20 +203,22 @@ def read_map():
         global level_width, level_height
         level_width = max_cols * tile_size
         level_height = max_rows * tile_size
+        return level_width, level_height
 
     except FileNotFoundError:
         print(f'Maps/{current_level}.txt file not found')
+        return WIDTH, HEIGHT
 
 all_sprites = pygame.sprite.Group()
 white_platforms = pygame.sprite.Group()
 black_platforms = pygame.sprite.Group()
-player = Player(400, 400)
+player = Player(100, 100)
 
 all_sprites.add(player)
 
-read_map()
+level_width, level_height = read_map()
 
-camera = Camera(level_width, level_height)
+camera = Camera(WIDTH, HEIGHT)
 
-
-Game().run()
+game = Game()
+game.run()
